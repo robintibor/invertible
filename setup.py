@@ -5,6 +5,10 @@ from os import path
 here = path.abspath(path.dirname(__file__))
 
 
+# Get the long description from the relevant file
+with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
+    long_description = f.read()
+
 # This will add __version__ to version dict
 version = {}
 with open(path.join(here, 'invertible/version.py'), encoding='utf-8') as (
@@ -16,7 +20,7 @@ setup(
 
     version=version['__version__'],
 
-    description='A deep learning toolbox to decode raw time-domain EEG.',
+    description='Invertible Networks for Pytorch',
     long_description=long_description,
 
     # The project's main homepage.
