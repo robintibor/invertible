@@ -3,8 +3,60 @@ import torch as th
 from invertible.gaussian import get_gauss_samples, \
     get_mixture_gaussian_log_probs
 import torch.nn.functional as F
-from torch import nn
 from invertible.gaussian import get_gaussian_log_probs
+from torch import nn
+
+
+class PerDimWeightedMix(nn.Module):
+    def __init__(self, n_classes, n_mixes, n_dims, init_std=1e-1,
+                 **mix_dist_kwargs):
+        super().__init__()
+        self.n_classes = n_classes
+        self.n_mixes = n_mixes
+        self.n_dims = n_dims
+        self.mix_dist = NClassIndependentDist(n_classes=n_mixes, n_dims=n_dims, **mix_dist_kwargs)
+        self.mix_dist.class_means.data.normal_(mean=0, std=init_std)
+        self.mix_dist.class_log_stds.data.normal_(mean=0, std=init_std)
+        self.weights = nn.Parameter(th.zeros(n_classes, n_mixes, n_dims))
+
+    def forward(self, z, fixed=None):
+        fixed = fixed or {}
+        _, lps = self.mix_dist(z, fixed=dict(sum_dims=False))
+        log_weights = F.log_softmax(self.weights, dim=1)
+        lp_weighted = lps.unsqueeze(1) + log_weights.unsqueeze(0)
+        # examples x classes x mixtures x dims
+        if fixed.get('sum_mixtures', True):
+            lp = th.logsumexp(lp_weighted, dim=2)
+        if fixed.get('sum_dims', True):
+            lp = th.sum(lp, dim=-1)
+
+        if fixed.get('y', None) is not None:
+            y = fixed['y']
+            if y.ndim > 1:
+                # assume one hot encoding
+                y = y.argmax(dim=1, keepdim=True)
+            else:
+                y = y.unsqueeze(1)
+
+            repeats = ()
+            while y.ndim < lp.ndim:
+                repeats = repeats + (lp.shape[y.ndim],)
+                y = y.unsqueeze(-1)
+            y = y.repeat((1, 1) + repeats)
+            lp = lp.gather(
+                dim=1, index=y).squeeze(1)
+        return z, lp
+
+    def invert(self, z, fixed=None):
+        fixed = fixed or {}
+        if z is None:
+            raise ValueError("to be implemented")
+        else:
+            logdet = self.forward(z, fixed=fixed)[1]
+            # compute unconditional logdet
+            if fixed.get('y', None) is not None:
+                logdet = th.logsumexp(logdet, dim=1) - np.log(logdet.shape[1])
+        return z, logdet
 
 
 class MergeLogDets(nn.Module):
