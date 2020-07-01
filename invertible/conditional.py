@@ -46,3 +46,25 @@ class ApplyAndCat(nn.Module):
 
         ys = [m(x) for m, x in zip(self.module_list, xs)]
         return th.cat(ys, dim=1)
+
+
+class CatCondAsList(nn.Module):
+    """Apply different modules to different inputs.
+    First module will be applied to first input, etc.
+    So this module expects to receive a list of inputs
+    in the forward."""
+
+    def __init__(self, cond_preproc=None, cond_is_list=False):
+        super().__init__()
+        self.cond_preproc = cond_preproc
+        self.cond_is_list = cond_is_list
+
+    def forward(self, x, cond):
+        if self.cond_preproc is not None:
+            cond_processed = self.cond_preproc(cond)
+        else:
+            cond_processed = cond
+        if self.cond_is_list:
+            return [x] + cond_processed
+        else:
+            return [x, cond_processed]

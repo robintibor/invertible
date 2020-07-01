@@ -261,7 +261,7 @@ class ConditionalNode(AbstractNode):
                     for m in module.modules()])
         if not hasattr(condition_nodes, '__len__'):
             condition_nodes = [condition_nodes]
-        self.condition_nodes = condition_nodes
+        self.condition_nodes = nn.ModuleList(condition_nodes)
 
     def get_condition(self):
         for c in self.condition_nodes:

@@ -44,7 +44,7 @@ class InvPermute(nn.Module):
             l_mask = u_mask.t()
 
             #w_p = th.from_numpy(w_p)
-            #w_l = th.from_numpy(w_l)
+            #w_l = th.from_numpy(w_l)w
             #w_s = th.from_numpy(w_s)
             #w_u = th.from_numpy(w_u)
 
@@ -63,11 +63,19 @@ class InvPermute(nn.Module):
                 len(w), device=w.device,
                 dtype=w.dtype)
         if self.use_lu:
+            # parameters
+            self.w_l.data.zero_()
+            self.w_s.data.zero_()
+            self.w_u.data.zero_()
+            # buffers
             self.w_p.data.copy_(eye_like(self.w_p))
             self.s_sign.data.copy_(th.ones_like((self.s_sign)))
-            self.w_l.data.copy_(eye_like(self.w_l))
-            self.w_s.data.copy_(th.ones_like((self.w_s)))
-            self.w_u.data.zero_()
+
+            #self.w_p.data.copy_(eye_like(self.w_p))
+            #self.s_sign.data.copy_(th.ones_like((self.s_sign)))
+            #self.w_l.data.copy_(eye_like(self.w_l))
+            #self.w_s.data.copy_(th.ones_like((self.w_s)))
+            #self.w_u.data.zero_()
 
         else:
             self.weight.data.copy_(eye_like(self.weight))
@@ -97,7 +105,7 @@ class InvPermute(nn.Module):
                 self.s_sign * th.exp(self.w_s)))
             )
         else:
-            weight = self.weight
+            weight = self.weight # consider to add identity by default
         return weight
 
     def invert(self, y, fixed=None):
