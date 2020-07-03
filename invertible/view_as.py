@@ -81,3 +81,7 @@ class Flatten2dAndCat(th.nn.Module):
     def __repr__(self):
         return "Flatten2dAndCat({:s})".format(
             str(self.dims_before))
+
+
+def flatten_2d(a):
+    return a.view(len(a), -1)
