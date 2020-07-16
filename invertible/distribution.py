@@ -53,11 +53,11 @@ class PerDimWeightedMix(nn.Module):
             raise ValueError("to be implemented")
         else:
             logdet = self.forward(z, fixed=fixed)[1]
-            # compute unconditional logdet
-            if fixed.get('y', None) is not None:
-                logdet = th.logsumexp(logdet, dim=1) - np.log(logdet.shape[1])
+        # compute unconditional logdet
+        if fixed.get('y', None) is None:
+            #For now
+            logdet = th.logsumexp(logdet, dim=1) - np.log(logdet.shape[1])
         return z, logdet
-
 
 class MergeLogDets(nn.Module):
     def __init__(self, module):

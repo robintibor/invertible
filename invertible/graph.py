@@ -281,7 +281,8 @@ class ConditionalNode(AbstractNode):
         condition = self.get_condition()
         x, log_det = self.module.invert(
             ys, condition=condition, fixed=fixed)
-        return x, sum(next_log_dets) + log_det
+        l_sum = sum(next_log_dets)
+        return x, l_sum + log_det
 
 
 class IntermediateResultsNode(AbstractNode):

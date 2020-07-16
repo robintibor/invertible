@@ -16,7 +16,7 @@ class ApplyToList(nn.Module):
         assert len(xs) == len(self.module_list), (
             f"{len(xs)} xs and {len(self.module_list)} modules")
 
-        ys_logdets = [m(x) for m, x in zip(self.module_list, xs)]
+        ys_logdets = [m(x, fixed=fixed) for m, x in zip(self.module_list, xs)]
         ys, logdets = list(zip(*ys_logdets))
         logdet = sum(logdets)
         return ys, logdet
@@ -25,7 +25,7 @@ class ApplyToList(nn.Module):
         assert len(ys) == len(self.module_list), (
             f"{len(ys)} ys and {len(self.module_list)} modules")
 
-        xs_logdets = [m.invert(y) for m, y in zip(self.module_list, ys)]
+        xs_logdets = [m.invert(y, fixed=fixed) for m, y in zip(self.module_list, ys)]
         xs, logdets = list(zip(*xs_logdets))
         logdet = sum(logdets)
         return xs, logdet
