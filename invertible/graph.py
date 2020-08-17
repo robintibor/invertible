@@ -24,7 +24,8 @@ class AbstractNode(nn.Module):
                 prev = [prev]
             prev = nn.ModuleList(prev)
         self.prev = prev
-        self.next = []
+        if not hasattr(self, 'next'):
+            self.next = []
         if self.prev is not None and notify_prev_nodes:
             for p in self.prev:
                 p.register_next(self)

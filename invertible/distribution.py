@@ -50,7 +50,18 @@ class PerDimWeightedMix(nn.Module):
     def invert(self, z, fixed=None):
         fixed = fixed or {}
         if z is None:
-            raise ValueError("to be implemented")
+            assert 'n_samples' in fixed
+            if 'y' in fixed:
+                i_class = fixed['y']
+                assert isinstance(i_class, int)
+                z = self.get_samples(i_class, fixed['n_samples'], std_factor=1)
+                y = th.zeros(len(z), dtype=th.int64, device=z.device) + i_class
+                logdet = self.forward(z, fixed={**fixed, **dict(y=y)})[1]
+            else:
+                raise ValueError("to be implemented")
+                y = self.get_unlabeled_samples(fixed['n_samples'],
+                                               std_factor=1)
+                logdet = self.log_probs_per_class(y)
         else:
             logdet = self.forward(z, fixed=fixed)[1]
         # compute unconditional logdet
@@ -58,6 +69,21 @@ class PerDimWeightedMix(nn.Module):
             #For now
             logdet = th.logsumexp(logdet, dim=1) - np.log(logdet.shape[1])
         return z, logdet
+
+    def get_samples(self, i_class, n_samples, std_factor):
+        prob_mixes = th.softmax(self.weights, dim=1)
+        selected_components = th.multinomial(
+            prob_mixes[i_class].t(), num_samples=n_samples).t()
+        selected_means = self.mix_dist.class_means.gather(
+            dim=0, index=selected_components)
+        selected_log_stds = self.mix_dist.class_log_stds.gather(
+            dim=0, index=selected_components)
+        selected_stds = th.exp(selected_log_stds)
+        normal_samples = th.randn_like(selected_means)
+        samples = (normal_samples * selected_stds * std_factor) + selected_means
+        return samples
+
+
 
 class MergeLogDets(nn.Module):
     def __init__(self, module):
