@@ -26,8 +26,7 @@ def init_all_modules(net, trainloader, n_batches=10, use_y=False,
                         break
 
                 init_x = th.cat(all_x, dim=0)
-                if [p.is_cuda for p in net.parameters()][0]:
-                    init_x = init_x.cuda()
+                init_x = init_x.cuda()
                 if use_y:
                     init_y = th.cat(all_y)
                 else:

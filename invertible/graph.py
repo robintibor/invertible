@@ -24,8 +24,7 @@ class AbstractNode(nn.Module):
                 prev = [prev]
             prev = nn.ModuleList(prev)
         self.prev = prev
-        if not hasattr(self, 'next'):
-            self.next = []
+        self.next = []
         if self.prev is not None and notify_prev_nodes:
             for p in self.prev:
                 p.register_next(self)
@@ -193,6 +192,10 @@ class Node(AbstractNode):
                     prev_sum = prev_sum.squeeze(1).unsqueeze(1)
             if len(prev_sum.shape) == 1 and len(logdet.shape) == 2:
                 prev_sum = prev_sum.unsqueeze(1)
+            if len(prev_sum.shape) == 1 and len(logdet.shape) == 3:
+                # here you need to average prev sum as it will be added to all dims
+                prev_sum = prev_sum.unsqueeze(1).unsqueeze(1)
+                prev_sum = prev_sum / logdet.shape[2]
             if len(prev_sum.shape) == 2 and len(logdet.shape) == 1:
                 logdet = logdet.unsqueeze(1)
 
@@ -262,7 +265,7 @@ class ConditionalNode(AbstractNode):
                     for m in module.modules()])
         if not hasattr(condition_nodes, '__len__'):
             condition_nodes = [condition_nodes]
-        self.condition_nodes = nn.ModuleList(condition_nodes)
+        self.condition_nodes = condition_nodes
 
     def get_condition(self):
         for c in self.condition_nodes:
@@ -282,8 +285,7 @@ class ConditionalNode(AbstractNode):
         condition = self.get_condition()
         x, log_det = self.module.invert(
             ys, condition=condition, fixed=fixed)
-        l_sum = sum(next_log_dets)
-        return x, l_sum + log_det
+        return x, sum(next_log_dets) + log_det
 
 
 class IntermediateResultsNode(AbstractNode):
@@ -312,6 +314,8 @@ class CatAsListNode(AbstractNode):
         return xs, sum(new_prev_log_dets)
 
     def _invert_myself(self, next_log_dets, ys, fixed=None):
+        # log.debug("Inverting cat as list node NOW,,,,,")
+        # log.debug("in cat as list len(ys)" + str(len(ys)))
         return ys, sum(next_log_dets) / len(ys)
 
 

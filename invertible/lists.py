@@ -18,7 +18,15 @@ class ApplyToList(nn.Module):
 
         ys_logdets = [m(x, fixed=fixed) for m, x in zip(self.module_list, xs)]
         ys, logdets = list(zip(*ys_logdets))
-        logdet = sum(logdets)
+        # Concatenate in case dims not summed
+        if logdets[0].ndim > 2:
+            logdet = th.cat(logdets, axis=-1)
+            #print("logdet shape", logdet.shape)
+            #print("logdet[0]", logdet[0])
+            #print("th.sum(logdet[0], dim=-1)", th.sum(logdet[0], dim=-1))
+        else:
+            logdet = sum(logdets)
+            #print("logdet[0]", logdet[0])
         return ys, logdet
 
     def invert(self, ys, fixed=None):
@@ -27,7 +35,12 @@ class ApplyToList(nn.Module):
 
         xs_logdets = [m.invert(y, fixed=fixed) for m, y in zip(self.module_list, ys)]
         xs, logdets = list(zip(*xs_logdets))
-        logdet = sum(logdets)
+
+        # Concatenate in case dims not summed
+        if logdets[0].ndim > 2:
+            logdet = th.cat(logdets, axis=-1)
+        else:
+            logdet = sum(logdets)
         return xs, logdet
 
 

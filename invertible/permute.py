@@ -29,7 +29,7 @@ class InvPermute(nn.Module):
             #weight = np.random.randn(in_channel, in_channel)
             weight = th.randn(in_channel, in_channel)
             #q, _ = la.qr(weight)
-            q, _ = th.qr(weight)
+            q, _ = th.linalg.qr(weight)
 
             # w_p, w_l, w_u = la.lu(q.astype(np.float32))
             w_p, w_l, w_u = th.lu_unpack(*th.lu(q))

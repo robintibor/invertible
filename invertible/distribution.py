@@ -1,10 +1,10 @@
 import numpy as np
 import torch as th
-from invertible.gaussian import get_gauss_samples, \
-    get_mixture_gaussian_log_probs
+from .gaussian import get_gauss_samples, get_mixture_gaussian_log_probs
 import torch.nn.functional as F
-from invertible.gaussian import get_gaussian_log_probs
 from torch import nn
+
+from .gaussian import get_gaussian_log_probs
 
 
 class PerDimWeightedMix(nn.Module):
@@ -84,7 +84,6 @@ class PerDimWeightedMix(nn.Module):
         return samples
 
 
-
 class MergeLogDets(nn.Module):
     def __init__(self, module):
         super().__init__()
@@ -99,6 +98,7 @@ class MergeLogDets(nn.Module):
 
     def invert(self, y, fixed):
         return self.module.invert(y, fixed=fixed)
+
 
 
 class PerClass(nn.Module):
@@ -149,9 +149,7 @@ class ZeroDist(nn.Module):
 
 
 class NClassIndependentDist(nn.Module):
-    def __init__(self, n_classes=None, n_dims=None, optimize_mean=True,
-                 optimize_std=True,
-                 truncate_to=None,
+    def __init__(self, n_classes=None, n_dims=None, optimize_mean=True, optimize_std=True, truncate_to=None,
                  means=None, log_stds=None):
         super().__init__()
         if means is not None:
@@ -163,8 +161,8 @@ class NClassIndependentDist(nn.Module):
                 self.class_means = nn.Parameter(
                     th.zeros(n_classes, n_dims, requires_grad=True))
             else:
-                self.register_buffer('class_means',
-                                     th.zeros(n_classes, n_dims, ))
+                self.register_buffer('class_means', th.zeros(n_classes, n_dims,))
+
             if optimize_std:
                 self.class_log_stds = nn.Parameter(
                     th.zeros(n_classes, n_dims, requires_grad=True))
@@ -201,11 +199,9 @@ class NClassIndependentDist(nn.Module):
                 logdet = self.log_probs_per_class(y)
 
         else:
-            if (fixed is not None) and (fixed.get('y', None) is not None):
-                i_class = self.fixed['y']
-                logdet = self.log_prob_class(i_class, y)
-            else:
-                logdet = self.log_prob_unlabeled(y)
+            if hasattr(fixed, '__getitem__') and 'y' in fixed:
+                assert fixed['y'] is None, "not implemented"
+                logdet = self.log_probs_per_class(y)
         return y, logdet
 
     def get_mean_std(self, i_class):

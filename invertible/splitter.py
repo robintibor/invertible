@@ -38,7 +38,7 @@ def unsqueeze2d(input, factor):
 class SubsampleSplitter(th.nn.Module):
     def __init__(self, stride, chunk_chans_first=True, checkerboard=False,
                  cat_at_end=True, via_reshape=False):
-        super(SubsampleSplitter, self).__init__()
+        super().__init__()
         if not hasattr(stride, '__len__'):
             stride = (stride, stride)
         elif len(stride) == 1: # HACK for now, just make it into 2d splitting

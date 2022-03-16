@@ -1,9 +1,9 @@
 from torch import nn
 
 
-class NoLogDet(nn.Module):
+class ModelThrowAwayLogDet(nn.Module):
     def __init__(self, model):
-        super().__init__()
+        super(ModelThrowAwayLogDet, self).__init__()
         self.model = model
 
     def forward(self, x):
@@ -13,3 +13,6 @@ class NoLogDet(nn.Module):
     def invert(self, y):
         x, logdet = self.model.invert(y)
         return x
+
+#Alias
+NoLogDet = ModelThrowAwayLogDet
