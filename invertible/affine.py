@@ -37,6 +37,8 @@ class AffineModifier(nn.Module):
         if raw_scale is not None:
             if self.sigmoid_or_exp_scale == 'sigmoid':
                 s = th.sigmoid(raw_scale + 2.) + self.eps
+            elif self.sigmoid_or_exp_scale == 'twice_sigmoid':
+                s = th.sigmoid(raw_scale) * 2 + self.eps
             else:
                 assert self.sigmoid_or_exp_scale == 'exp'
                 s = th.exp(raw_scale) + self.eps
@@ -57,6 +59,8 @@ class AffineModifier(nn.Module):
         if raw_scale is not None:
             if self.sigmoid_or_exp_scale == 'sigmoid':
                 s = th.sigmoid(raw_scale + 2) + self.eps
+            elif self.sigmoid_or_exp_scale == 'twice_sigmoid':
+                s = th.sigmoid(raw_scale) * 2 + self.eps
             else:
                 assert self.sigmoid_or_exp_scale == 'exp'
                 s = th.exp(raw_scale) + self.eps

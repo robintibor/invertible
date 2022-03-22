@@ -1,7 +1,7 @@
 import torch as th
 
 def init_all_modules(net, trainloader, n_batches=10, use_y=False,
-                     verbose_init=True):
+                     verbose_init=True, init_only_uninitialized=False):
     with th.no_grad():
         if trainloader is not None:
             if hasattr(trainloader, 'shape') or (
@@ -33,7 +33,8 @@ def init_all_modules(net, trainloader, n_batches=10, use_y=False,
                     init_y = None
 
             for m in net.modules():
-                if hasattr(m, 'initialize_this_forward'):
+                if hasattr(m, 'initialize_this_forward') and (
+                        (not init_only_uninitialized) or (not m.initialized)):
                     m.initialize_this_forward = True
                     m.verbose_init = verbose_init
 

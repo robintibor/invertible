@@ -49,6 +49,11 @@ class InvertibleSequential(nn.Module):
                         sum_logdet = sum_logdet.squeeze(1).unsqueeze(1)
                 if len(sum_logdet.shape) == 1 and len(logdet.shape) == 2:
                     sum_logdet = sum_logdet.unsqueeze(1)
+
+                if len(sum_logdet.shape) == 1 and len(logdet.shape) == 3:
+                    # here you need to average prev sum as it will be added to all dims
+                    sum_logdet = sum_logdet.unsqueeze(1).unsqueeze(1)
+                    sum_logdet = sum_logdet / logdet.shape[2]
                 if len(sum_logdet.shape) == 2 and len(logdet.shape) == 1:
                     logdet = logdet.unsqueeze(1)
             sum_logdet = logdet + sum_logdet
