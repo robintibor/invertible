@@ -9,7 +9,7 @@ from torch import nn
 
 
 class InvPermute(nn.Module):
-    def __init__(self, in_channel, fixed, use_lu):
+    def __init__(self, in_channel, fixed, use_lu, init_identity=False):
         super().__init__()
         self.use_lu = use_lu
         self.fixed = fixed
@@ -56,6 +56,8 @@ class InvPermute(nn.Module):
             self.w_l = nn.Parameter(w_l)
             self.w_s = nn.Parameter(th.log(th.abs(w_s)))
             self.w_u = nn.Parameter(w_u)
+        if init_identity:
+            self.reset_to_identity()
 
     def reset_to_identity(self):
         def eye_like(w):

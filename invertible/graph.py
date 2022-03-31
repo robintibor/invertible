@@ -7,10 +7,13 @@ log = logging.getLogger(__name__)
 
 
 class AbstractNode(nn.Module):
-    def __init__(self, prev, module, notify_prev_nodes=True, **tags):
+    # False default for remove_prev_node_next just for abckwards compatiblity
+    def __init__(self, prev, module, notify_prev_nodes=True, remove_prev_node_next=False, **tags):
         super().__init__()
+        # unclear if correct
+        self.next = []
         # Always make into List
-        self.change_prev(prev, notify_prev_nodes=notify_prev_nodes)
+        self.change_prev(prev, notify_prev_nodes=notify_prev_nodes, remove_prev_node_next=remove_prev_node_next)
         self.module = module
         self.cur_out = None
         self.cur_out_log_det = None
@@ -18,16 +21,20 @@ class AbstractNode(nn.Module):
         self.cur_in_log_det = None
         self.tags = tags
 
-    def change_prev(self, prev, notify_prev_nodes):
+    def change_prev(self, prev, notify_prev_nodes, remove_prev_node_next):
+        if remove_prev_node_next:
+            assert notify_prev_nodes
         if prev is not None:
             if not hasattr(prev, "__len__"):
                 prev = [prev]
             prev = nn.ModuleList(prev)
         self.prev = prev
-        self.next = []
-        if self.prev is not None and notify_prev_nodes:
+        if self.prev is not None:
             for p in self.prev:
-                p.register_next(self)
+                if remove_prev_node_next:
+                    p.next = []
+                if notify_prev_nodes:
+                    p.register_next(self)
 
     def register_next(self, next_module):
         self.next.append(next_module)

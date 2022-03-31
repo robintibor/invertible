@@ -9,13 +9,16 @@ def inverse_elu(y):
     x.data[1-mask] = th.log(y.data[1-mask])
     return x
 
+def inverse_sigmoid(y):
+    return th.log(y / (1-y))
+
 class ActNorm(nn.Module):
     def __init__(self, in_channel, scale_fn, eps=1e-8, verbose_init=True,
                  init_eps=None):
         super().__init__()
 
-        self.loc = nn.Parameter(th.zeros(in_channel))
-        self.log_scale = nn.Parameter(th.zeros(in_channel))
+        self.bias = nn.Parameter(th.zeros(in_channel))
+        self.raw_scale = nn.Parameter(th.zeros(in_channel))
 
         self.initialize_this_forward = False
         self.initialized = False
@@ -25,6 +28,8 @@ class ActNorm(nn.Module):
         if init_eps is None:
             if scale_fn == 'exp':
                 self.init_eps = 1e-6
+            elif scale_fn == 'twice_sigmoid':
+                self.init_eps = 0.5 + 1e-6 # can max multiply with 2...
             else:
                 assert scale_fn == 'elu'
                 self.init_eps = 1e-1
@@ -39,18 +44,22 @@ class ActNorm(nn.Module):
             mean = x.mean(dim=other_dims)
             std = x.std(dim=other_dims)
 
-            self.loc.data.copy_(-mean)
+            self.bias.data.copy_(-mean)
             if self.scale_fn == 'exp':
-                self.log_scale.data.copy_(th.log(1 / th.clamp_min(std, self.init_eps)))
+                self.raw_scale.data.copy_(th.log(1 / th.clamp_min(std, self.init_eps)))
+            elif self.scale_fn == 'twice_sigmoid':
+                self.raw_scale.data.copy_(inverse_sigmoid(0.5 / th.clamp_min(std, self.init_eps)))
             elif self.scale_fn == 'elu':
-                self.log_scale.data.copy_(inverse_elu(1 / th.clamp_min(std, self.init_eps)))
+                self.raw_scale.data.copy_(inverse_elu(1 / th.clamp_min(std, self.init_eps)))
             else:
                 assert False
 
             if self.scale_fn == 'exp':
-                multipliers = th.exp(self.log_scale.squeeze())
+                multipliers = th.exp(self.raw_scale.squeeze())
             elif self.scale_fn == 'elu':
-                multipliers = th.nn.functional.elu(self.log_scale) + 1
+                multipliers = th.nn.functional.elu(self.raw_scale) + 1
+            elif self.scale_fn == 'twice_sigmoid':
+                multipliers = th.sigmoid(self.raw_scale) * 2
             if self.verbose_init:
                 print(f"Multiplier init to (log10) "
                 f"min: {np.log10(th.min(multipliers).item()):3.0f} "
@@ -67,43 +76,46 @@ class ActNorm(nn.Module):
             self.initialized = True
             self.initialize_this_forward = False
 
-        scale, loc, logdet = self.scale_loc_and_logdet_unsqueezed(x)
-        y = scale * (x + loc)
+        scale, bias, logdet = self.scale_bias_and_logdet_unsqueezed(x)
+        y = scale * (x + bias)
         return y, logdet
 
     def invert(self, z, fixed=None):
-        scale, loc, logdet = self.scale_loc_and_logdet_unsqueezed(z)
-        x = z / scale - loc
+        scale, bias, logdet = self.scale_bias_and_logdet_unsqueezed(z)
+        x = z / scale - bias
         return x, logdet
 
     def scale_and_logdet_per_pixel(self):
         if self.scale_fn == 'exp':
-            scale = th.exp(self.log_scale) + self.eps
+            scale = th.exp(self.raw_scale) + self.eps
             if self.eps == 0:
-                logdet = th.sum(self.log_scale)
+                logdet = th.sum(self.raw_scale)
             else:
                 logdet = th.sum(th.log(scale))
+        elif self.scale_fn == 'twice_sigmoid':
+            scale = th.sigmoid(self.raw_scale) * 2
+            logdet = th.sum(th.log(scale))
         elif self.scale_fn == 'elu':
-            scale = th.nn.functional.elu(self.log_scale) + 1 + self.eps
+            scale = th.nn.functional.elu(self.raw_scale) + 1 + self.eps
             logdet = th.sum(th.log(scale))
         else:
             assert False
 
         return scale, logdet
 
-    def scale_loc_and_logdet_unsqueezed(self, x):
+    def scale_bias_and_logdet_unsqueezed(self, x):
         scale, log_det_px = self.scale_and_logdet_per_pixel()
         scale = scale.unsqueeze(0)
-        loc = self.loc.unsqueeze(0)
+        bias = self.bias.unsqueeze(0)
         while scale.ndim < x.ndim:
             scale = scale.unsqueeze(-1)
-            loc = loc.unsqueeze(-1)
+            bias = bias.unsqueeze(-1)
         assert scale.ndim == x.ndim
-        assert loc.ndim == x.ndim
+        assert bias.ndim == x.ndim
         n_dims = np.prod(x.shape[2:])
         logdet = n_dims * log_det_px
         logdet = logdet.repeat(len(x))
-        return scale, loc, logdet
+        return scale, bias, logdet
 
 
 def init_act_norm(net, trainloader, n_batches=10, uni_noise_factor=1/255.0):
@@ -132,7 +144,7 @@ def init_act_norm(net, trainloader, n_batches=10, uni_noise_factor=1/255.0):
 class PureActNorm(nn.Module):
     def __init__(self, in_channel,):
         super().__init__()
-        self.loc = nn.Parameter(th.zeros(in_channel))
+        self.bias = nn.Parameter(th.zeros(in_channel))
         self.scale = nn.Parameter(th.zeros(in_channel))
         self.initialize_this_forward = False
         self.initialized = False
@@ -147,12 +159,12 @@ class PureActNorm(nn.Module):
             self.initialized = True
             self.initialize_this_forward = False
 
-        loc = self.loc.unsqueeze(0)
+        bias = self.bias.unsqueeze(0)
         scale = self.scale.unsqueeze(0)
         if len(x.shape) == 4:
-            loc = loc.unsqueeze(2).unsqueeze(3)
+            bias = bias.unsqueeze(2).unsqueeze(3)
             scale = scale.unsqueeze(2).unsqueeze(3)
-        y = scale * (x + loc)
+        y = scale * (x + bias)
         return y
 
     def initialize(self, x):
@@ -164,6 +176,6 @@ class PureActNorm(nn.Module):
             std = (
                 flatten.std(1)
             )
-            self.loc.data.copy_(-mean)
+            self.bias.data.copy_(-mean)
             self.scale.data.copy_(1 / (std + 1e-4))
         print("Multiplier initialized to \n", self.scale.squeeze())
