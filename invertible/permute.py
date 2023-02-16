@@ -32,7 +32,7 @@ class InvPermute(nn.Module):
             q, _ = th.linalg.qr(weight)
 
             # w_p, w_l, w_u = la.lu(q.astype(np.float32))
-            w_p, w_l, w_u = th.lu_unpack(*th.lu(q))
+            w_p, w_l, w_u = th.lu_unpack(*th.linalg.lu_factor(q))
 
             #w_s = np.diag(w_u)
             w_s = th.diag(w_u)

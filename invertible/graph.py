@@ -200,11 +200,17 @@ class Node(AbstractNode):
             if len(prev_sum.shape) == 1 and len(logdet.shape) == 2:
                 prev_sum = prev_sum.unsqueeze(1)
             if len(prev_sum.shape) == 1 and len(logdet.shape) == 3:
-                # here you need to average prev sum as it will be added to all dims
                 prev_sum = prev_sum.unsqueeze(1).unsqueeze(1)
-                prev_sum = prev_sum / logdet.shape[2]
+                # moved to below to cover more cases
+                # prev_sum = prev_sum / logdet.shape[2]
             if len(prev_sum.shape) == 2 and len(logdet.shape) == 1:
                 logdet = logdet.unsqueeze(1)
+
+        # Special case:
+        # here you need to average prev sum as it will be added to all dims
+        if hasattr(logdet, 'shape') and len(logdet.shape) == 3:
+            assert (len(prev_sum.shape) < 3) or (not hasattr(prev_sum, 'shape'))
+            prev_sum = prev_sum / logdet.shape[2]
 
         new_log_det = prev_sum + logdet
         return y, new_log_det

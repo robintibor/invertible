@@ -64,10 +64,6 @@ class PerDimWeightedMix(nn.Module):
                 logdet = self.log_probs_per_class(y)
         else:
             logdet = self.forward(z, fixed=fixed)[1]
-        # compute unconditional logdet
-        if fixed.get('y', None) is None:
-            #For now
-            logdet = th.logsumexp(logdet, dim=1) - np.log(logdet.shape[1])
         return z, logdet
 
     def get_samples(self, i_class, n_samples, std_factor):
@@ -185,24 +181,26 @@ class NClassIndependentDist(nn.Module):
                 dim=1, index=y).squeeze(1)
         return x, logdet
 
-    def invert(self, y, fixed=None):
-        if y is None:
+
+    def invert(self, z, fixed=None):
+        fixed = fixed or {}
+        if z is None:
             assert 'n_samples' in fixed
-            if hasattr(fixed, '__getitem__') and 'y' in fixed:
+            if 'y' in fixed:
                 i_class = fixed['y']
                 assert isinstance(i_class, int)
-                y = self.get_samples(i_class, fixed['n_samples'], std_factor=1)
-                logdet = self.log_prob_class(i_class, y)
+                z = self.get_samples(i_class, fixed['n_samples'], std_factor=1)
+                y = th.zeros(len(z), dtype=th.int64, device=z.device) + i_class
+                logdet = self.forward(z, fixed={**fixed, **dict(y=y)})[1]
             else:
+                raise ValueError("to be implemented")
                 y = self.get_unlabeled_samples(fixed['n_samples'],
-                                                std_factor=1)
+                                               std_factor=1)
                 logdet = self.log_probs_per_class(y)
-
         else:
-            if hasattr(fixed, '__getitem__') and 'y' in fixed:
-                assert fixed['y'] is None, "not implemented"
-                logdet = self.log_probs_per_class(y)
-        return y, logdet
+            logdet = self.forward(z, fixed=fixed)[1]
+        return z, logdet
+
 
     def get_mean_std(self, i_class):
         cur_mean, cur_log_std = self.get_mean_log_std(i_class)
