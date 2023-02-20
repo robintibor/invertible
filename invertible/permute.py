@@ -15,7 +15,7 @@ class InvPermute(nn.Module):
         self.fixed = fixed
         if not use_lu:
             weight = th.randn(in_channel, in_channel)
-            q, _ = th.qr(weight)
+            q, _ = th.linalg.qr(weight)
             weight = q
             if fixed:
                 self.register_buffer('weight', weight.data)

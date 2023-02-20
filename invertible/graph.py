@@ -209,7 +209,9 @@ class Node(AbstractNode):
         # Special case:
         # here you need to average prev sum as it will be added to all dims
         if hasattr(logdet, 'shape') and len(logdet.shape) == 3:
-            assert (len(prev_sum.shape) < 3) or (not hasattr(prev_sum, 'shape'))
+            assert ((not hasattr(prev_sum, 'shape')) or (len(prev_sum.squeeze().shape) < 3)), (
+                "prevsum shape", prev_sum.shape
+            )
             prev_sum = prev_sum / logdet.shape[2]
 
         new_log_det = prev_sum + logdet
