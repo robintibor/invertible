@@ -41,9 +41,11 @@ class AbstractNode(nn.Module):
 
     def forward(self, x, fixed=None):
         assert self.cur_out is None, "Please remove cur out before forward"
-        out, log_det = self._forward(x, fixed=fixed)
-        self.remove_cur_in()
-        self.remove_cur_out()
+        try:
+            out, log_det = self._forward(x, fixed=fixed)
+        finally:
+            self.remove_cur_in()
+            self.remove_cur_out()
         return out, log_det
 
     def _forward(self, x, fixed=None):
@@ -71,9 +73,11 @@ class AbstractNode(nn.Module):
         # determine starting module
         # ps are predecessors
         starting_m = self.find_starting_node()
-        inverted = starting_m._invert(x, fixed=fixed)
-        self.remove_cur_in()
-        self.remove_cur_out()
+        try:
+            inverted = starting_m._invert(x, fixed=fixed)
+        finally:
+            self.remove_cur_in()
+            self.remove_cur_out()
         return inverted
 
     def find_starting_node(self):
