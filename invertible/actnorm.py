@@ -93,7 +93,8 @@ class ActNorm(nn.Module):
             else:
                 logdet = th.sum(th.log(scale))
         elif self.scale_fn == 'twice_sigmoid':
-            scale = th.sigmoid(self.raw_scale) * 2
+                # make it centered around  1 to [eps, 2-eps]
+            scale = th.sigmoid(self.raw_scale) * (2 - 2 * self.eps) + self.eps
             logdet = th.sum(th.log(scale))
         elif self.scale_fn == 'elu':
             scale = th.nn.functional.elu(self.raw_scale) + 1 + self.eps
@@ -142,12 +143,12 @@ def init_act_norm(net, trainloader, n_batches=10, uni_noise_factor=1/255.0):
 
 
 class PureActNorm(nn.Module):
-    def __init__(self, in_channel,):
+    def __init__(self, in_channel, initialized=False):
         super().__init__()
         self.bias = nn.Parameter(th.zeros(in_channel))
-        self.scale = nn.Parameter(th.zeros(in_channel))
+        self.scale = nn.Parameter(th.ones(in_channel))
         self.initialize_this_forward = False
-        self.initialized = False
+        self.initialized = initialized
 
     def forward(self, x):
         if not self.initialized:
@@ -161,9 +162,9 @@ class PureActNorm(nn.Module):
 
         bias = self.bias.unsqueeze(0)
         scale = self.scale.unsqueeze(0)
-        if len(x.shape) == 4:
-            bias = bias.unsqueeze(2).unsqueeze(3)
-            scale = scale.unsqueeze(2).unsqueeze(3)
+        while scale.ndim < x.ndim:
+            scale = scale.unsqueeze(-1)
+            bias = bias.unsqueeze(-1)
         y = scale * (x + bias)
         return y
 

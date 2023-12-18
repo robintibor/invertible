@@ -227,8 +227,14 @@ class Node(AbstractNode):
             if isinstance(ys[i_y], tuple):
                 ys[i_y] = ys[i_y][0]
 
+        next_sum = sum(next_log_dets)
         x, log_det = self.module.invert(ys, fixed=fixed)
-        return x, sum(next_log_dets) + log_det
+        if hasattr(log_det,  'shape') and hasattr(next_sum, 'shape') and (
+                log_det.ndim > 0) and (next_sum.ndim > 0):
+            if len(log_det.shape) < len(next_sum.shape):
+                log_det = log_det.view(-1, *((1,) * (len(next_sum.shape) - len(log_det.shape))))
+
+        return x, next_sum + log_det
 
 
 class SelectNode(AbstractNode):

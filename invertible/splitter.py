@@ -99,6 +99,9 @@ class SubsampleSplitter(th.nn.Module):
 
 
     def invert(self, features, fixed=None):
+        if not self.cat_at_end:
+            # just cat now then... then invert can be a single logic
+            features = th.cat(features, dim=1)
         was_1d = len(features.shape) == 3
         if was_1d:
             # HACK for now, just make it into 2d splitting
@@ -113,40 +116,21 @@ class SubsampleSplitter(th.nn.Module):
             # for i_stride in range(self.stride):
             #    for j_stride in range(self.stride):
             #        new_x.append(one_x[:,:,i_stride::self.stride, j_stride::self.stride])
-            if self.cat_at_end:
-                n_all_chans_before = features.size()[1] // (
-                        self.stride[0] * self.stride[1])
-            else:
-                n_all_chans_before = sum([f.shape[1] for f in features]) // (
-                            self.stride[0] * self.stride[1])
+            n_all_chans_before = features.size()[1] // (
+                    self.stride[0] * self.stride[1])
 
             # if there was only one chan before, chunk had no effect
             if self.chunk_chans_first and (n_all_chans_before > 1):
-                if self.cat_at_end:
-                    chan_features = th.chunk(features, 2, dim=1)
-                else:
-                    chan_features = [features[: len(features) // 2],
-                                     features[len(features) // 2:]]
+                chan_features = th.chunk(features, 2, dim=1)
             else:
                 chan_features = [features]
             all_previous_features = []
             for one_chan_features in chan_features:
-                if self.cat_at_end:
-                    n_examples = one_chan_features.size()[0]
-                    n_chans = one_chan_features.size()[1] // (
-                            self.stride[0] * self.stride[1])
-                    n_0 = one_chan_features.size()[2] * self.stride[0]
-                    n_1 = one_chan_features.size()[3] * self.stride[1]
-                else:
-                    n_examples = one_chan_features[0].size()[0]
-                    n_chans = sum([f.shape[1] for f in one_chan_features]) // (
-                            self.stride[0] * self.stride[1])
-                    n_0 = int(
-                        np.mean([f.size()[2] for f in one_chan_features]) *
-                        self.stride[0])
-                    n_1 = int(
-                        np.mean([f.size()[3] for f in one_chan_features]) *
-                        self.stride[0])
+                n_examples = one_chan_features.size()[0]
+                n_chans = one_chan_features.size()[1] // (
+                        self.stride[0] * self.stride[1])
+                n_0 = one_chan_features.size()[2] * self.stride[0]
+                n_1 = one_chan_features.size()[3] * self.stride[1]
 
                 previous_features = th.zeros(
                     n_examples,
@@ -160,38 +144,28 @@ class SubsampleSplitter(th.nn.Module):
                 if not self.checkerboard:
                     for i_stride in range(self.stride[0]):
                         for j_stride in range(self.stride[1]):
-                            if self.cat_at_end:
-                                previous_features[:, :, i_stride::self.stride[0],
-                                    j_stride::self.stride[1]] = (
-                                        one_chan_features[:,
-                                        cur_chan * n_chans_before:
-                                        cur_chan * n_chans_before + n_chans_before])
-                            else:
-                                previous_features[:, :, i_stride::self.stride[0],
-                                    j_stride::self.stride[1]] = one_chan_features[cur_chan]
+                            previous_features[:, :, i_stride::self.stride[0],
+                                j_stride::self.stride[1]] = (
+                                    one_chan_features[:,
+                                    cur_chan * n_chans_before:
+                                    cur_chan * n_chans_before + n_chans_before])
                             cur_chan += 1
                 else:
                     # Manually go through 4 checkerboard positions
                     assert self.stride[0] == 2
                     assert self.stride[1] == 2
-                    if self.cat_at_end:
-                        previous_features[:, :, 0::2, 0::2] = (
-                            one_chan_features[:,
-                            0 * n_chans_before:0 * n_chans_before + n_chans_before])
-                        previous_features[:, :, 1::2, 1::2] = (
-                            one_chan_features[:,
-                            1 * n_chans_before:1 * n_chans_before + n_chans_before])
-                        previous_features[:, :, 0::2, 1::2] = (
-                            one_chan_features[:,
-                            2 * n_chans_before:2 * n_chans_before + n_chans_before])
-                        previous_features[:, :, 1::2, 0::2] = (
-                            one_chan_features[:,
-                            3 * n_chans_before:3 * n_chans_before + n_chans_before])
-                    else:
-                        previous_features[:, :, 0::2, 0::2] = one_chan_features[0]
-                        previous_features[:, :, 1::2, 1::2] = one_chan_features[1]
-                        previous_features[:, :, 0::2, 1::2] = one_chan_features[2]
-                        previous_features[:, :, 1::2, 0::2] = one_chan_features[3]
+                    previous_features[:, :, 0::2, 0::2] = (
+                        one_chan_features[:,
+                        0 * n_chans_before:0 * n_chans_before + n_chans_before])
+                    previous_features[:, :, 1::2, 1::2] = (
+                        one_chan_features[:,
+                        1 * n_chans_before:1 * n_chans_before + n_chans_before])
+                    previous_features[:, :, 0::2, 1::2] = (
+                        one_chan_features[:,
+                        2 * n_chans_before:2 * n_chans_before + n_chans_before])
+                    previous_features[:, :, 1::2, 0::2] = (
+                        one_chan_features[:,
+                        3 * n_chans_before:3 * n_chans_before + n_chans_before])
                 all_previous_features.append(previous_features)
             features = th.cat(all_previous_features, dim=1)
             if was_1d:
@@ -204,4 +178,3 @@ class SubsampleSplitter(th.nn.Module):
                "checkerboard={:s})").format(str(self.stride),
                                            str(self.chunk_chans_first),
                                            str(self.checkerboard))
-
